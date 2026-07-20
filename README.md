@@ -185,6 +185,20 @@ sudo systemctl status forwardbot
 
 ---
 
+## Commands
+
+```
+start - check I'm alive 
+forward - forward messages
+unequify - delete duplicate media messages in chats
+settings - configure your settings
+stop - stop your ongoing tasks
+reset - reset your settings
+restart - restart server (owner only)
+resetall - reset all users settings (owner only)
+broadcast - broadcast a message to all your users (owner only)
+```
+
 ## ⚙️ Settings Guide
 
 Access settings via `/settings` or the **⚙ Settings** button.
