@@ -1,6 +1,3 @@
-import os
-from config import Config
-
 class  Script(object):
   START_TXT = """<b>ʜɪ {}
   
@@ -10,30 +7,48 @@ class  Script(object):
 **ᴄʟɪᴄᴋ ʜᴇʟᴘ ʙᴜᴛᴛᴏɴ ᴛᴏ ᴋɴᴏᴡ ᴍᴏʀᴇ ᴀʙᴏᴜᴛ ᴍᴇ**"""
   HELP_TXT = """<b><u>🔆 Help</b></u>
 
-<u>**📚 Available commands:**</u>
-<b>⏣ __/start - check I'm alive__ 
-⏣ __/forward - forward messages__
-⏣ __/settings - configure your settings__
-⏣ __ /unequify - delete duplicate media messages in chats__
-⏣ __ /stop - stop your ongoing tasks__
-⏣ __ /reset - reset your settings__</b>
+<u><b>📚 Commands</b></u>
+<b>⏣ /start — check I'm alive
+⏣ /forward — forward messages (also /fwd)
+⏣ /settings — configure everything
+⏣ /watch — auto-forward new posts from a channel
+⏣ /watches — list & stop your watches
+⏣ /tasks — history of your finished forwards
+⏣ /unequify — delete duplicate media in a chat
+⏣ /stop — stop your ongoing task
+⏣ /reset — reset your settings</b>
 
-<b><u>💢 Features:</b></u>
-<b>► __Forward message from public channel to your channel without admin permission. if the channel is private need admin permission, if you can't give admin permission then use userbot, but in userbot there is a chance to get your account ban so use fake account__
-► __custom caption__
-► __custom button__
-► __skip duplicate messages__
-► __filter type of messages__</b>
+<u><b>💢 Features</b></u>
+<b>► Forward from public channels with no admin rights needed
+► <u>Multi-bot parallel engine</u> — add N bots, get ~N× the speed
+► Fan-out: send to several target channels in one task
+► Message-ID ranges (e.g. <code>500-1500</code>) as well as plain skip
+► 🧪 Dry run — preview what would be forwarded, send nothing
+► Skip duplicates — fully database-backed, zero RAM growth
+► Custom caption & inline button
+► Per-type filters (video, doc, photo, audio, text, …)
+► Min/max file size, keyword, and extension filters (block or allow-only)
+► Auto-resume after a restart</b>
+
+<i>Private sources need a userbot member, or your bots as admins.</i>
 """
   
-  HOW_USE_TXT = """<b><u>⚠️ Before Forwarding:</b></u>
-<b>► __add a bot or userbot__
-► __add atleast one to channel__ `(your bot/userbot must be admin in there)`
-► __You can add chats or bots by using /settings__
-► __if the **From Channel** is private your userbot must be member in there or your bot must need admin permission in there also__
-► __Then use /forward to forward messages__
+  HOW_USE_TXT = """<b><u>⚠️ Before Forwarding</b></u>
+<b>1. Add one or more bots via /settings → Bots
+   <i>Each extra bot multiplies your speed — they work in parallel.</i>
+2. Add at least one target channel via /settings → Channels
+   <i>Every bot must be an admin there.</i>
+3. If the source is private, add a userbot (or make your bots admins there).
+4. Run /forward and pick an engine.</b>
 
-► ʜᴏᴡ ᴛᴏ ᴜsᴇ ᴍᴇ [ᴛᴜᴛᴏʀɪᴀʟ ᴠɪᴅᴇᴏ](https://youtu.be/wO1FE-lf35I)</b>"""
+<b><u>💡 Tips</b></u>
+<b>► At the skip prompt you can send a <u>range</u> like <code>500-1500</code>
+► Turn on 🧪 Dry Run (Extra Settings) to preview a big task first
+► Add a MongoDB URL so skip-duplicate survives restarts
+► Hitting FloodWait? Raise the delay in ⚡ Speed
+► Use /watch to keep mirroring a channel continuously</b>
+
+<b>► ʜᴏᴡ ᴛᴏ ᴜsᴇ ᴍᴇ [ᴛᴜᴛᴏʀɪᴀʟ ᴠɪᴅᴇᴏ](https://youtu.be/wO1FE-lf35I)</b>"""
   
   ABOUT_TXT = """<b>
 ╔════❰ ғᴏʀᴡᴀʀᴅ ʙᴏᴛ ❱═❍⊱❁۪۪
@@ -63,8 +78,19 @@ class  Script(object):
 ╚══════════════════❍⊱❁۪۪
 """
   FROM_MSG = "<b>❪ SET SOURCE CHAT ❫\n\nForward the last message or last message link of source chat.\n/cancel - cancel this process</b>"
-  TO_MSG = "<b>❪ CHOOSE TARGET CHAT ❫\n\nChoose your target chat from the given buttons.\n/cancel - Cancel this process</b>"
-  SKIP_MSG = "<b>❪ SET MESSAGE SKIPING NUMBER ❫</b>\n\n<b>Skip the message as much as you enter the number and the rest of the message will be forwarded\nDefault Skip Number =</b> <code>0</code>\n<code>eg: You enter 0 = 0 message skiped\n You enter 5 = 5 message skiped</code>\n/cancel <b>- cancel this process</b>"
+  TO_MSG = "<b>❪ CHOOSE TARGET CHAT ❫\n\nChoose a target chat from the buttons below, or pick <code>ALL CHANNELS</code> to forward to every one of them at once.\n/cancel - Cancel this process</b>"
+  SKIP_MSG = """<b>❪ SET RANGE OR SKIP COUNT ❫</b>
+
+<b>Send a number to skip that many messages from the start:</b>
+<code>0</code> — forward everything
+<code>500</code> — start from message 500
+
+<b>Or send an explicit ID range:</b>
+<code>500-1500</code> — only messages 500 to 1500
+
+<i>A range also makes the progress percentage accurate.</i>
+
+/cancel <b>- cancel this process</b>"""
   CANCEL = "<b>Process Cancelled Succefully !</b>"
   BOT_DETAILS = "<b><u>📄 BOT DETAILS</b></u>\n\n<b>➣ NAME:</b> <code>{}</code>\n<b>➣ BOT ID:</b> <code>{}</code>\n<b>➣ USERNAME:</b> @{}"
   USER_DETAILS = "<b><u>📄 USERBOT DETAILS</b></u>\n\n<b>➣ NAME:</b> <code>{}</code>\n<b>➣ USER ID:</b> <code>{}</code>\n<b>➣ USERNAME:</b> @{}"  

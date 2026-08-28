@@ -1,0 +1,46 @@
+Done. Tests pass (53) and pyflakes is clean across the repo.
+
+## What was leaking RAM
+
+Three real growth sources, all now closed:
+
+1. **Duplicate cache (the big one).** `DupCache` held up to `DUP_CACHE_LIMIT` (50 000) file IDs in a Python `set` per running task, and only consulted MongoDB *after* overflowing — so a long forward climbed several MB and then silently stopped detecting duplicates. `/unequify` had the same set plus a per-run `duplicates` list.
+2. **`temp.CANCEL` never shrank** for users who pressed a stale cancel button or `/stop` with no task — one permanent dict entry per such user.
+3. **Abandoned task states.** `STS.store` is called when `/forward` reaches the confirmation prompt, but release only happened when a task *finished*. A user who never pressed an engine button left the state until some other task happened to sweep.
+
+## Duplicates: removed from RAM entirely
+
+`DupCache` is replaced by `DupStore` (`plugins/utils.py`). Each check is now a single atomic `update_one(..., upsert=True)`; `upserted_id is None` means the file was already recorded. That collapses the old find-then-insert into one round trip and holds nothing between the two steps.
+
+Backends, picked automatically:
+
+- **User added their own MongoDB** (`/settings` → 🗃 MongoDB) → their database, via the new `MongoDB.mark()`.
+- **They did not** → the bot's own `dupes` collection, scoped by key, with a TTL index (`DUP_TTL_HOURS`, default 72 h) so records expire themselves if a task is killed mid-run.
+
+Two deliberate decisions worth flagging:
+
+- The key is `user_id:target_chat`, not the task ID, so a task resumed after a restart keeps the duplicates it already recorded (resume generates a fresh task ID).
+- A database error returns "not a duplicate", so a Mongo hiccup causes a re-forward rather than a silently dropped file.
+
+`DUP_HOT_CACHE` (default `0`) can opt back into a small in-RAM cache if you'd rather trade memory for fewer round trips. `/memory` now reports checks, hits, backend, and RAM held.
+
+## Extension skipping
+
+The old filter was `re.search` on an unanchored escaped list — `mp4` matched `movie.mp4.part` and `mp4-collection.mkv`. Now `_compile_extensions` builds `\.(?:mp4|mkv)$`, anchored, case-insensitive, leading dot optional on input. Added an **allow-only mode** (whitelist) toggled from the panel, plus removing extensions one at a time. `/watch` previously ignored extension, keyword, and size filters completely — it now applies all of them.
+
+## Other fixes
+
+`main.py` runs a background sweeper (`SWEEP_INTERVAL`, default 30 min) so abandoned task states go away on their own, and it's cancelled cleanly on shutdown. `temp.request_cancel` returns a bool and no longer records flags for users without a task; `/stop` passes `force=True` when the database confirms a resumed task.
+
+## Feature ideas
+
+Ranked by value against this codebase:
+
+- **Resumable duplicate history per target** — you already store IDs keyed by target; expose "keep duplicate memory for this channel forever" as a setting instead of clearing it at task end. Turns the bot into a proper mirror that never re-sends.
+- **Scheduled forwards** — `/forward` with a start time, stored in Mongo, picked up by the same sweeper loop. Small addition given the resume machinery already exists.
+- **Filename rewriting rules** — regex find/replace on filenames and captions, the same way `custom_caption` works now. Highly requested in this class of bot.
+- **Per-target routing** — send `.mkv` to one channel and `.pdf` to another, instead of fanning every file to all targets.
+- **Live FloodWait adaptation** — the delay is user-configured and static; the engine could back off automatically when FloodWait appears and creep back down when it doesn't.
+- **Task queueing** — right now a second `/forward` is rejected while one runs. A per-user FIFO queue would let people line up jobs.
+
+Say which of these you want and I'll implement it.

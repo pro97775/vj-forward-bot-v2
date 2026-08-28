@@ -1,92 +1,108 @@
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
+"""/broadcast — owner-only message fan-out to every user."""
 
-from pyrogram.errors import InputUserDeactivated, UserNotParticipant, FloodWait, UserIsBlocked, PeerIdInvalid
-from database import db
-from pyrogram import Client, filters
-from config import Config
 import asyncio
 import datetime
-import time
 import logging
+import time
+
+from pyrogram import Client, filters
+from pyrogram.errors import (
+    FloodWait,
+    InputUserDeactivated,
+    PeerIdInvalid,
+    UserIsBlocked,
+)
+
+from config import Config
+from database import db
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
+# Pause between sends so a large broadcast does not trip global limits.
+SEND_DELAY = 0.15
+UI_EVERY = 25
+
 
 async def broadcast_messages(user_id, message):
-    try:
-        await message.copy(chat_id=user_id)
-        return True, "Success"
-    except FloodWait as e:
-        await asyncio.sleep(e.value)
-        return await broadcast_messages(user_id, message)
-    except InputUserDeactivated:
-        await db.delete_user(int(user_id))
-        logging.info(f"{user_id} - Removed from Database, account deleted.")
-        return False, "Deleted"
-    except UserIsBlocked:
-        logging.info(f"{user_id} - Blocked the bot.")
-        return False, "Blocked"
-    except PeerIdInvalid:
-        await db.delete_user(int(user_id))
-        logging.info(f"{user_id} - PeerIdInvalid")
-        return False, "Error"
-    except Exception as e:
-        return False, "Error"
+    """Send one copy. Returns (ok, outcome) where outcome is a short reason."""
+    for _ in range(3):
+        try:
+            await message.copy(chat_id=user_id)
+            return True, "Success"
+        except FloodWait as exc:
+            if exc.value > 300:
+                return False, "Error"
+            await asyncio.sleep(exc.value + 1)
+        except InputUserDeactivated:
+            await db.delete_user(int(user_id))
+            logger.info("%s removed — account deleted", user_id)
+            return False, "Deleted"
+        except UserIsBlocked:
+            logger.info("%s has blocked the bot", user_id)
+            return False, "Blocked"
+        except PeerIdInvalid:
+            await db.delete_user(int(user_id))
+            return False, "Error"
+        except Exception as exc:
+            logger.debug("broadcast to %s failed: %s", user_id, exc)
+            return False, "Error"
+    return False, "Error"
 
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
 
-@Client.on_message(filters.command("broadcast") & filters.user(Config.BOT_OWNER) & filters.reply)
-async def verupikkals(bot, message):
+@Client.on_message(
+    filters.command("broadcast") & filters.user(Config.BOT_OWNER) & filters.reply
+)
+async def broadcast(bot, message):
     users = await db.get_all_users()
     b_msg = message.reply_to_message
-    sts = await message.reply_text(text='Broadcasting your messages...')
+    sts = await message.reply_text("Broadcasting your message…")
     start_time = time.time()
     total_users = await db.total_users_count()
-    done = 0
-    blocked = 0
-    deleted = 0
-    failed = 0
-    success = 0
 
-    async for user in users:
-        if 'id' in user:
-            pti, sh = await broadcast_messages(int(user['id']), b_msg)
-            if pti:
-                success += 1
-            elif sh == "Blocked":
-                blocked += 1
-            elif sh == "Deleted":
-                deleted += 1
-            elif sh == "Error":
-                failed += 1
-        else:
-            failed += 1
-        done += 1
-        if done % 20 == 0:
-            try:
-                await sts.edit(
-                    f"Broadcast in progress:\n\nTotal Users: {total_users}\n"
-                    f"Completed: {done} / {total_users}\n"
-                    f"Success: {success}\nBlocked: {blocked}\nDeleted: {deleted}\nFailed: {failed}"
-                )
-            except:
-                pass
-
-    time_taken = datetime.timedelta(seconds=int(time.time() - start_time))
-    await sts.edit(
-        f"Broadcast Completed in {time_taken}.\n\n"
-        f"Total Users: {total_users}\nCompleted: {done} / {total_users}\n"
-        f"Success: {success}\nBlocked: {blocked}\nDeleted: {deleted}\nFailed: {failed}"
+    done = blocked = deleted = failed = success = 0
+    template = (
+        "<b>Broadcast in progress</b>\n\n"
+        "Total: <code>{total}</code>\n"
+        "Completed: <code>{done} / {total}</code>\n"
+        "Success: <code>{success}</code>\n"
+        "Blocked: <code>{blocked}</code>\n"
+        "Deleted: <code>{deleted}</code>\n"
+        "Failed: <code>{failed}</code>"
     )
 
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
+    async for user in users:
+        user_id = user.get("id")
+        if user_id is None:
+            failed += 1
+        else:
+            ok, outcome = await broadcast_messages(int(user_id), b_msg)
+            if ok:
+                success += 1
+            elif outcome == "Blocked":
+                blocked += 1
+            elif outcome == "Deleted":
+                deleted += 1
+            else:
+                failed += 1
+        done += 1
+
+        if done % UI_EVERY == 0:
+            try:
+                await sts.edit(
+                    template.format(
+                        total=total_users, done=done, success=success,
+                        blocked=blocked, deleted=deleted, failed=failed,
+                    )
+                )
+            except Exception:
+                pass
+        await asyncio.sleep(SEND_DELAY)
+
+    elapsed = datetime.timedelta(seconds=int(time.time() - start_time))
+    await sts.edit(
+        f"<b>Broadcast completed in {elapsed}</b>\n\n"
+        + template.format(
+            total=total_users, done=done, success=success,
+            blocked=blocked, deleted=deleted, failed=failed,
+        ).split("\n\n", 1)[1]
+    )

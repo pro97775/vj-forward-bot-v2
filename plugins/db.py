@@ -1,61 +1,115 @@
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
+"""Per-user MongoDB used to persist duplicate file ids across restarts."""
 
-import asyncio
+import logging
+
 import motor.motor_asyncio
+from pymongo.errors import PyMongoError
 
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
+logger = logging.getLogger(__name__)
+
 
 class MongoDB:
     def __init__(self, uri, db_name, collection):
         self.uri = uri
         self.db_name = db_name
-        self.collection = collection 
+        self.collection = collection
         self.client = None
         self.db = None
         self.files = None
 
     async def connect(self):
-        self.client = motor.motor_asyncio.AsyncIOMotorClient(self.uri)
+        self.client = motor.motor_asyncio.AsyncIOMotorClient(
+            self.uri, serverSelectionTimeoutMS=8000
+        )
+        # Fail fast on a bad URI instead of at first query.
+        await self.client.admin.command("ping")
         self.db = self.client[self.db_name]
         self.files = self.db[self.collection]
+        try:
+            await self.files.create_index("file_id", unique=True)
+        except PyMongoError as exc:
+            logger.debug("index creation skipped: %s", exc)
 
     async def close(self):
-        if self.client:
+        if self.client is not None:
             self.client.close()
+            self.client = None
+            self.db = None
+            self.files = None
 
     async def add_file(self, file_id):
-        file = {"file_id": file_id}
-        return await self.files.insert_one(file)
-        
+        if self.files is None:
+            return None
+        try:
+            return await self.files.update_one(
+                {"file_id": file_id},
+                {"$setOnInsert": {"file_id": file_id}},
+                upsert=True,
+            )
+        except PyMongoError as exc:
+            logger.debug("add_file failed: %s", exc)
+            return None
+
     async def is_file_exit(self, file_id):
-        f = await self.files.find_one({"file_id": file_id})
-        return bool(f)
-        
+        if self.files is None:
+            return False
+        try:
+            return bool(await self.files.find_one({"file_id": file_id}, {"_id": 1}))
+        except PyMongoError as exc:
+            logger.debug("is_file_exit failed: %s", exc)
+            return False
+
+    async def mark(self, file_id):
+        """Atomically record ``file_id``. Returns True if it already existed.
+
+        One round trip instead of a find followed by an insert, so nothing
+        needs to be held in RAM between the two steps.
+        """
+        if self.files is None:
+            return False
+        try:
+            result = await self.files.update_one(
+                {"file_id": file_id},
+                {"$setOnInsert": {"file_id": file_id}},
+                upsert=True,
+            )
+            return result.upserted_id is None
+        except PyMongoError as exc:
+            logger.debug("mark failed: %s", exc)
+            return False
+
+    async def count(self):
+        if self.files is None:
+            return 0
+        try:
+            return await self.files.count_documents({})
+        except PyMongoError:
+            return 0
+
     async def get_all_files(self):
-        return self.files.find({})
-        
+        if self.files is None:
+            return None
+        return self.files.find({}, {"file_id": 1})
+
     async def drop_all(self):
-        return await self.files.drop()
-        
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
+        if self.files is None:
+            return None
+        try:
+            return await self.files.drop()
+        except PyMongoError as exc:
+            logger.debug("drop_all failed: %s", exc)
+            return None
+
 
 async def connect_user_db(user_id, uri, chat):
-    chat = f"{user_id}{chat}"
+    """Open a user's duplicate store. Returns (connected, db)."""
+    collection = f"{user_id}{chat}"
     dbname = f"{user_id}-Forward-Bot"
-    db = MongoDB(uri, dbname, chat)
+    user_db = MongoDB(uri, dbname, collection)
     try:
-        await db.connect()
-    except Exception as e:
-        print(e)
-        return False, db
-    return True, db
-    
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
+        await user_db.connect()
+    except Exception as exc:
+        logger.warning("user db connect failed for %s: %s", user_id, exc)
+        await user_db.close()
+        return False, user_db
+    return True, user_db
