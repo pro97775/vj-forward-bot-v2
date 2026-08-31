@@ -290,14 +290,20 @@ An optional second database that stores duplicate file IDs permanently. See
 
 | Setting | Range | Meaning |
 |---|---|---|
-| Queue size | 5–100 | Messages buffered before a dispatch round |
-| Delay | 0.5–10.0 s | Pause per bot between sends |
+| Queue size | 5–100 | Messages buffered *per bot* before a dispatch round |
+| Delay | 0.5–10.0 s | Interval per bot between sends |
 | Stagger | 0.0–2.0 s | Offset between bot workers starting |
 
 Because bots send in parallel, total throughput is approximately
 `(60 / delay) × bot count` messages per minute. The default 3 s delay gives
-about 20/min per bot, which is comfortably inside Telegram's limits. Lower it
-for speed; if you start seeing FloodWait in the logs, raise it back.
+20/min per bot: 1 bot ≈ 20/min, 2 bots ≈ 40/min, 3 bots ≈ 60/min, and so on.
+Lower it for speed; if you start seeing FloodWait in the logs, raise it back.
+
+The delay is an *interval*, not a pause tacked on after each send — a worker
+sleeps only the remainder of its slot, so the time a send itself takes does not
+eat into the rate. Queue size is multiplied by the number of active bots when
+building a dispatch round, so every bot gets a full share of work and the pool
+actually reaches the aggregate rate instead of leaving one bot to finish alone.
 
 ---
 

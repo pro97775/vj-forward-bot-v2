@@ -326,6 +326,13 @@ async def process_queue_multi(bot_pool, user_id, message_queue, sts,
         if start_delay:
             await asyncio.sleep(start_delay)
         strikes = 0
+        # Pace on a deadline rather than sleeping a flat ``base_sleep`` after
+        # each send. A fixed trailing sleep makes the real interval
+        # ``base_sleep + send_time``, so a 3s delay yielded ~15 msgs/min
+        # instead of 20. Sleeping only the remainder of the interval keeps each
+        # bot at exactly 60/base_sleep per minute whenever the network can
+        # keep up, so N bots give N times that rate.
+        next_slot = time.monotonic()
         while True:
             if temp.is_cancelled(user_id):
                 return
@@ -335,6 +342,13 @@ async def process_queue_multi(bot_pool, user_id, message_queue, sts,
                 details = queue.get_nowait()
             except asyncio.QueueEmpty:
                 return
+
+            now = time.monotonic()
+            if now < next_slot:
+                await asyncio.sleep(next_slot - now)
+            # Anchor the next slot to this one, not to "now", so a slow send
+            # does not permanently push the schedule back.
+            next_slot = max(time.monotonic(), next_slot) + base_sleep
 
             attempts = details.get("_attempts", 0) + 1
             details["_attempts"] = attempts
@@ -364,8 +378,6 @@ async def process_queue_multi(bot_pool, user_id, message_queue, sts,
                 )
                 await bot_pool.mark_inactive(entry["info"])
                 return
-
-            await asyncio.sleep(base_sleep)
 
     workers = [
         asyncio.create_task(worker(entry, i * stagger))
@@ -442,6 +454,14 @@ async def _run_task(
     queue_size = max(1, int(speed.get("batch_size", 20)))
     base_sleep = float(speed.get("base_sleep", 3.0))
     stagger = float(speed.get("stagger_delay", 0.2))
+
+    # Each dispatch round is a barrier: fetching stops until every bot has
+    # drained the queue. With a queue of 20 and 4 bots each bot only got 5
+    # messages per round, so most of the round was the slowest bot finishing
+    # alone and the pool never reached ``bots × per-bot rate``. Give every bot
+    # a full queue's worth of work so the parallel phase dominates.
+    bot_count = bot_pool.active_count if bot_pool is not None else 1
+    dispatch_size = queue_size * max(1, bot_count)
 
     targets = sts.all_targets()
     cancelled = False
@@ -525,7 +545,7 @@ async def _run_task(
                         "protect": protect,
                     }
                 )
-                if len(message_queue) >= queue_size:
+                if len(message_queue) >= dispatch_size:
                     await send_one(message_queue, base_sleep, stagger)
                     message_queue = []
 

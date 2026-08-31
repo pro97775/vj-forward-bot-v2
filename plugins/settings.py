@@ -786,11 +786,12 @@ def _speed_text(bs):
     per_ub = round(60 / ub) if ub > 0 else 0
     return (
         "<b><u>⚡ Speed / Batch Settings</u></b>\n\n"
-        f"<b>📦 Queue Size:</b> <code>{batch}</code>  <i>(messages buffered before dispatch)</i>\n"
+        f"<b>📦 Queue Size:</b> <code>{batch}</code>  <i>(messages buffered per bot before dispatch)</i>\n"
         f"<b>⏱ Bot Delay:</b> <code>{sleep}s</code>  <i>(~{per_bot} msgs/min per bot)</i>\n"
         f"<b>🔀 Stagger:</b> <code>{stagger}s</code>  <i>(offset between bot workers)</i>\n"
         f"<b>👤 Userbot Delay:</b> <code>{ub}s</code>  <i>(~{per_ub} msgs/min)</i>\n\n"
-        "<i>Bots send in parallel, so total speed ≈ per-bot rate × bot count.\n"
+        f"<i>Bots send in parallel: 2 bots ≈ {per_bot * 2}/min, "
+        f"3 bots ≈ {per_bot * 3}/min, and so on.\n"
         "Lower the delay for speed; raise it if you hit FloodWait.\n"
         "Keep the userbot delay higher — user accounts get limited faster.</i>"
     )
