@@ -292,6 +292,14 @@ async def send_forward(client, sts, message_ids, targets, protect):
 # ==================================================================
 # CONCURRENT QUEUE PROCESSING
 # ==================================================================
+# A single item is handed to at most this many different bots before it is
+# written off. Retrying on another bot is what makes one dead bot survivable.
+MAX_ITEM_ATTEMPTS = 3
+# Consecutive failures after which a bot is dropped from the pool for this
+# task, so it stops eating items it cannot deliver.
+MAX_BOT_STRIKES = 3
+
+
 async def process_queue_multi(bot_pool, user_id, message_queue, sts,
                               base_sleep=3.0, stagger=0.2):
     """Drain ``message_queue`` using every active bot in parallel.
@@ -299,6 +307,10 @@ async def process_queue_multi(bot_pool, user_id, message_queue, sts,
     One worker per bot, all pulling from a shared queue. Each worker paces
     itself with ``base_sleep`` so per-bot rate limits are respected while the
     aggregate throughput scales with the bot count.
+
+    A failed send is re-queued for a *different* bot instead of being counted
+    as lost, and a bot that fails ``MAX_BOT_STRIKES`` times in a row is marked
+    inactive so the remaining bots finish the work.
     """
     if not message_queue:
         return
@@ -313,22 +325,46 @@ async def process_queue_multi(bot_pool, user_id, message_queue, sts,
     async def worker(entry, start_delay):
         if start_delay:
             await asyncio.sleep(start_delay)
-        while not queue.empty():
+        strikes = 0
+        while True:
             if temp.is_cancelled(user_id):
+                return
+            if not entry["active"]:
                 return
             try:
                 details = queue.get_nowait()
             except asyncio.QueueEmpty:
                 return
+
+            attempts = details.get("_attempts", 0) + 1
+            details["_attempts"] = attempts
             try:
                 if dry_run:
                     sts.add("total_files")
+                    strikes = 0
                 elif await send_copy(entry["client"], sts, details, targets):
                     sts.add("total_files")
+                    strikes = 0
                 else:
-                    sts.add("deleted")
+                    strikes += 1
+                    # Give the message to another bot; only give up once it has
+                    # been refused by MAX_ITEM_ATTEMPTS bots.
+                    if attempts < MAX_ITEM_ATTEMPTS and bot_pool.active_count > 1:
+                        queue.put_nowait(details)
+                    else:
+                        sts.add("deleted")
             finally:
                 queue.task_done()
+
+            if strikes >= MAX_BOT_STRIKES and bot_pool.active_count > 1:
+                logger.warning(
+                    "Dropping bot %s from the pool after %s consecutive failures",
+                    entry["info"].get("username") or entry["info"].get("id"),
+                    strikes,
+                )
+                await bot_pool.mark_inactive(entry["info"])
+                return
+
             await asyncio.sleep(base_sleep)
 
     workers = [
@@ -338,6 +374,17 @@ async def process_queue_multi(bot_pool, user_id, message_queue, sts,
     if not workers:
         return
     await asyncio.gather(*workers, return_exceptions=True)
+
+    # If every bot went inactive mid-round, whatever is left is undeliverable.
+    leftover = 0
+    while not queue.empty():
+        try:
+            queue.get_nowait()
+        except asyncio.QueueEmpty:
+            break
+        leftover += 1
+    if leftover:
+        sts.add("deleted", leftover)
 
 
 # ==================================================================
@@ -614,15 +661,24 @@ async def run_round_robin_task(bot, user_id, forward_id, progress_msg, valid_bot
                 return
 
     async def send_batch(ids):
-        entry = await bot_pool.get_next_bot()
-        if not entry:
-            return 0
         if sts.get("dry_run"):
             return len(ids)
-        ok = await send_forward(
-            entry["client"], sts, ids, sts.all_targets(), sts.get("protect")
-        )
-        return len(ids) if ok else 0
+        # Try the batch on successive bots: one bot losing its admin rights or
+        # hitting a long FloodWait used to make the whole batch count as lost.
+        tried = set()
+        for _ in range(min(MAX_ITEM_ATTEMPTS, max(1, bot_pool.active_count))):
+            entry = await bot_pool.get_next_bot()
+            if not entry:
+                return 0
+            key = entry["info"].get("id")
+            if key in tried:
+                continue
+            tried.add(key)
+            if await send_forward(
+                entry["client"], sts, ids, sts.all_targets(), sts.get("protect")
+            ):
+                return len(ids)
+        return 0
 
     async def send_one(queue, base_sleep, stagger):
         await process_queue_multi(

@@ -2,19 +2,29 @@ from os import environ
 
 
 def _int(name: str, default: str = "0") -> int:
+    """Read an int env var, tolerating a blank/invalid value or default.
+
+    ``API_ID``/``BOT_OWNER`` use an empty default to mean "unset". The fallback
+    must therefore not itself raise, otherwise the process dies on import and
+    ``Config.validate()`` never gets to report the missing variable.
+    """
     raw = environ.get(name, default).strip()
-    try:
-        return int(raw)
-    except ValueError:
-        return int(default)
+    for candidate in (raw, default):
+        try:
+            return int(candidate)
+        except (TypeError, ValueError):
+            continue
+    return 0
 
 
 def _float(name: str, default: str) -> float:
     raw = environ.get(name, default).strip()
-    try:
-        return float(raw)
-    except ValueError:
-        return float(default)
+    for candidate in (raw, default):
+        try:
+            return float(candidate)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
 
 
 def _bool(name: str, default: bool = False) -> bool:
