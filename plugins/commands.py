@@ -12,6 +12,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, BotComman
 import psutil
 import time as time
 from os import environ, execle, system
+from plugins.utils import get_bot_uptime
 
 START_TIME = time.time()
 
@@ -109,7 +110,12 @@ async def restart(client, message):
     msg = await message.reply_text(text="<i>Trying to restarting.....</i>")
     await asyncio.sleep(5)
     await msg.edit("<i>Server restarted successfully ✅</i>")
-    system("git pull -f && pip3 install --no-cache-dir -r requirements.txt")
+    proc = await asyncio.create_subprocess_shell(
+        "git pull -f && pip3 install --no-cache-dir -r requirements.txt",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    await proc.communicate()
     execle(sys.executable, sys.executable, "main.py", environ)
 
 # Don't Remove Credit Tg - @VJ_Botz
@@ -228,23 +234,6 @@ async def sys_status(bot, query):
         reply_markup=reply_markup,
         disable_web_page_preview=True,
     )
-
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
-
-async def get_bot_uptime(start_time):
-    # Calculate the uptime in seconds
-    uptime_seconds = int(time.time() - start_time)
-    uptime_minutes = uptime_seconds // 60
-    uptime_hours = uptime_minutes // 60
-    uptime_string = ""
-    if uptime_hours != 0:
-        uptime_string += f" {uptime_hours % 24}H"
-    if uptime_minutes != 0:
-        uptime_string += f" {uptime_minutes % 60}M"
-    uptime_string += f" {uptime_seconds % 60} Sec"
-    return uptime_string   
 
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ

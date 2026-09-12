@@ -105,7 +105,7 @@ async def unequify(client, message):
    """Delete duplicate media of a chat using telegram file hashes."""
    user_id = message.from_user.id
    temp.CANCEL[user_id] = False
-   if temp.lock.get(user_id) and str(temp.lock.get(user_id)) == "True":
+   if temp.lock.get(user_id):
       return await message.reply("**please wait until previous task complete**")
    _bot = await db.get_userbot(user_id)
    if not _bot:
@@ -153,10 +153,11 @@ async def unequify(client, message):
      await sts.edit(Script.DUPLICATE_TEXT.format(total, deleted, "ᴘʀᴏɢʀᴇssɪɴɢ"), reply_markup=CANCEL_BTN)
      for media_filter in MEDIA_FILTERS:
         async for msg in bot.search_messages(chat_id=chat_id, filter=media_filter):
-           if temp.CANCEL.get(user_id) == True:
+           if temp.CANCEL.get(user_id):
               deleted += await delete_batch(bot, chat_id, DUPLICATE)
               await sts.edit(Script.DUPLICATE_TEXT.format(total, deleted, "ᴄᴀɴᴄᴇʟʟᴇᴅ"), reply_markup=COMPLETED_BTN)
-              temp.lock[user_id] = False
+              temp.lock.pop(user_id, None)
+              temp.CANCEL.pop(user_id, None)
               return await bot.stop()
            hash = file_hash(msg)
            if not hash:
@@ -175,10 +176,12 @@ async def unequify(client, message):
      if DUPLICATE:
         deleted += await delete_batch(bot, chat_id, DUPLICATE)
    except Exception as e:
-       temp.lock[user_id] = False 
+       temp.lock.pop(user_id, None)
+       temp.CANCEL.pop(user_id, None)
        await sts.edit(f"**ERROR**\n`{e}`")
        return await bot.stop()
-   temp.lock[user_id] = False
+   temp.lock.pop(user_id, None)
+   temp.CANCEL.pop(user_id, None)
    await sts.edit(Script.DUPLICATE_TEXT.format(total, deleted, "ᴄᴏᴍᴘʟᴇᴛᴇᴅ"), reply_markup=COMPLETED_BTN)
    await bot.stop()
 

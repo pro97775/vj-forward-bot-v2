@@ -51,6 +51,10 @@ class STS:
           return self.data[self.id].update({'start': tm.time() if start_time is None else start_time})
         self.data[self.id].update({key: (self.get(key) or 0) + (value or 0)})
 
+    def cleanup(self):
+        """Remove the task status from the dictionary to prevent memory leaks."""
+        self.data.pop(self.id, None)
+
     def divide(self, no, by):
        by = 1 if int(by) == 0 else by 
        return int(no) / by 
@@ -145,6 +149,25 @@ class Robin:
 
     def names(self):
         return ", ".join(w['name'] for w in self.workers)
+
+async def get_bot_uptime(start_time):
+    """Human readable time passed since `start_time`."""
+    uptime_seconds = int(tm.time() - (start_time or tm.time()))
+    uptime_minutes = uptime_seconds // 60
+    uptime_hours = uptime_minutes // 60
+    uptime_days = uptime_hours // 24
+    uptime_weeks = uptime_days // 7
+    uptime_string = ""
+    if uptime_weeks != 0:
+        uptime_string += f"{uptime_weeks % 7}w, "
+    if uptime_days != 0:
+        uptime_string += f"{uptime_days % 24}d, "
+    if uptime_hours != 0:
+        uptime_string += f"{uptime_hours % 24}h, "
+    if uptime_minutes != 0:
+        uptime_string += f"{uptime_minutes % 60}m, "
+    uptime_string += f"{uptime_seconds % 60}s"
+    return uptime_string
 
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ

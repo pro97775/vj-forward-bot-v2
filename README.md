@@ -25,6 +25,8 @@
 - [x] All settings through inline buttons
 - [x] All commands are registered in telegram automatically when the bot starts
 - [x] Auto Restart Pending Task After Bot Restart
+- [x] **Optimized Performance** - Resolved memory leaks in task tracking to ensure stability during long-running tasks
+- [x] **Asynchronous Execution** - Commands and subprocesses run entirely asynchronously so the bot stays responsive
 
 > Duplicate checking was removed from the forwarding flow (it made forwarding slow and needed an extra database). Use `/unequify` on the target chat to delete duplicates by file hash instead.
 

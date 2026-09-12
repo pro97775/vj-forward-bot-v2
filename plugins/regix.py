@@ -8,7 +8,7 @@ import math
 import re
 import time
 
-from .utils import STS, Robin
+from .utils import STS, Robin, get_bot_uptime
 from database import db
 from .test import get_client, iter_messages
 from config import temp
@@ -64,10 +64,10 @@ async def stop_clients(workers):
     for worker in workers or []:
         try:
             await worker['client'].stop()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"stop_clients: {e}")
 
-async def finish(user, workers=None, chat=None, counted=True):
+async def finish(user, workers=None, chat=None, counted=True, sts=None):
     """Clean up a task (clients, locks, db entry)."""
     await stop_clients(workers)
     try:
@@ -78,8 +78,11 @@ async def finish(user, workers=None, chat=None, counted=True):
         temp.IS_FRWD_CHAT.remove(chat)
     if counted:
         temp.forwardings = max(0, temp.forwardings - 1)
-    temp.lock[user] = False
+    temp.lock.pop(user, None)
+    temp.CANCEL.pop(user, None)
     temp.WORKERS.pop(user, None)
+    if sts:
+        sts.cleanup()
 
 # kept for backward compatibility with older callers
 async def stop(client, user):
@@ -324,10 +327,10 @@ async def edit(user, msg, title, status, sts):
 
 async def is_cancelled(bot, user, msg, sts, workers):
     """Stop a task when the user pressed cancel."""
-    if temp.CANCEL.get(user) == True:
+    if temp.CANCEL.get(user):
         await edit(user, msg, 'ᴄᴀɴᴄᴇʟʟᴇᴅ', "cancelled", sts)
         await send(bot, user, "<b>❌ ғᴏʀᴡᴀʀᴅɪɴɢ ᴄᴀɴᴄᴇʟʟᴇᴅ</b>")
-        await finish(user, workers, sts.get('TO'))
+        await finish(user, workers, sts.get('TO'), sts=sts)
         return True
     return False
 
@@ -432,11 +435,11 @@ async def run_forward(bot, user, m, sts, data, offset=None):
     except Exception as e:
         logger.exception("forwarding failed")
         await msg_edit(m, f'<b>ERROR:</b>\n<code>{e}</code>', wait=True)
-        await finish(user, workers, target)
+        await finish(user, workers, target, sts=sts)
         return
     await send(bot, user, "<b>🎉 ғᴏʀᴡᴀᴅɪɴɢ ᴄᴏᴍᴘʟᴇᴛᴇᴅ</b>")
     await edit(user, m, 'ᴄᴏᴍᴘʟᴇᴛᴇᴅ', "completed", sts)
-    await finish(user, workers, target)
+    await finish(user, workers, target, sts=sts)
 
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
@@ -448,7 +451,7 @@ async def pub_(bot, message):
     user = message.from_user.id
     temp.CANCEL[user] = False
     frwd_id = message.data.split("_", 2)[2]
-    if temp.lock.get(user) and str(temp.lock.get(user)) == "True":
+    if temp.lock.get(user):
         return await message.answer("please wait until previous task complete", show_alert=True)
     sts = STS(frwd_id)
     if not sts.verify():
@@ -471,7 +474,7 @@ async def pub_(bot, message):
 @Client.on_callback_query(filters.regex(r'^terminate_frwd$'))
 async def terminate_frwding(bot, m):
     user_id = m.from_user.id 
-    temp.lock[user_id] = False
+    temp.lock.pop(user_id, None)
     temp.CANCEL[user_id] = True 
     await m.answer("Forwarding cancelled !", show_alert=True)
 
@@ -517,7 +520,7 @@ async def stop_forward(client, message):
     await asyncio.sleep(0.5)
     if not await db.is_forwad_exit(user_id):
         return await sts.edit('**No Ongoing Forwards To Cancel**')
-    temp.lock[user_id] = False
+    temp.lock.pop(user_id, None)
     temp.CANCEL[user_id] = True
     await sts.edit("<b>Successfully Canceled </b>", disable_web_page_preview=True)
 
@@ -684,25 +687,6 @@ def TimeFormatter(milliseconds: int) -> str:
         ((str(seconds) + "s, ") if seconds else "") + \
         ((str(milliseconds) + "ms, ") if milliseconds else "")
     return tmp[:-2]
-
-async def get_bot_uptime(start_time):
-    """Human readable time passed since `start_time`."""
-    uptime_seconds = int(time.time() - (start_time or time.time()))
-    uptime_minutes = uptime_seconds // 60
-    uptime_hours = uptime_minutes // 60
-    uptime_days = uptime_hours // 24
-    uptime_weeks = uptime_days // 7
-    uptime_string = ""
-    if uptime_weeks != 0:
-        uptime_string += f"{uptime_weeks % 7}w, "
-    if uptime_days != 0:
-        uptime_string += f"{uptime_days % 24}d, "
-    if uptime_hours != 0:
-        uptime_string += f"{uptime_hours % 24}h, "
-    if uptime_minutes != 0:
-        uptime_string += f"{uptime_minutes % 60}m, "
-    uptime_string += f"{uptime_seconds % 60}s"
-    return uptime_string  
 
 async def complete_time(total_files, files_per_minute=30):
     """Rough eta for the remaining files."""

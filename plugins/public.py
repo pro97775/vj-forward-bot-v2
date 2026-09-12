@@ -117,7 +117,7 @@ async def get_source(bot, message):
 async def run(bot, message):
     """Ask everything needed for a task then show the double check message."""
     user_id = message.from_user.id
-    if temp.lock.get(user_id) and str(temp.lock.get(user_id)) == "True":
+    if temp.lock.get(user_id):
         return await message.reply("**please wait until previous task complete**")
     bots = await db.get_bots(user_id)
     userbot = await db.get_userbot(user_id)
