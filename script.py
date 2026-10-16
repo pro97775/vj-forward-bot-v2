@@ -1,115 +1,155 @@
-import os
-from config import Config
+class Script(object):
+    START_TXT = """<blockquote><b>👋 Hey {0}! Welcome to Advanced Multi-Bot Forwarder</b></blockquote>
 
-class  Script(object):
-  START_TXT = """<b>ʜɪ {}
-  
-ɪ'ᴍ ᴀ ᴀᴅᴠᴀɴᴄᴇᴅ ꜰᴏʀᴡᴀʀᴅ ʙᴏᴛ
-ɪ ᴄᴀɴ ꜰᴏʀᴡᴀʀᴅ ᴀʟʟ ᴍᴇssᴀɢᴇ ꜰʀᴏᴍ ᴏɴᴇ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴀɴᴏᴛʜᴇʀ ᴄʜᴀɴɴᴇʟ</b>
+<blockquote><b>⚡ High-Speed Telegram Forwarding Engine</b>
+Forward messages across public & private channels with an automated <b>Multi-Bot Round-Robin Pool</b>, smart captioning, 1-click auto-cleaners, and persistent deduplication.</blockquote>
 
-**ᴄʟɪᴄᴋ ʜᴇʟᴘ ʙᴜᴛᴛᴏɴ ᴛᴏ ᴋɴᴏᴡ ᴍᴏʀᴇ ᴀʙᴏᴜᴛ ᴍᴇ**"""
-  HELP_TXT = """<b><u>🔆 Help</b></u>
+<blockquote><b>✨ Core Highlights</b>
+• <b>🤖 Multi-Bot Pool:</b> Rotate multiple bots (20 msgs/min each) with auto-scaled delay & dynamic FloodWait recovery
+• <b>🔓 Public & Private:</b> Bot Pool for public/admin chats • Userbot for restricted private chats
+• <b>⏸ Pause & Resume:</b> Pause anytime with <code>/stop</code> and continue via <code>/resume</code>
+• <b>📝 Smart Captions & Cleaners:</b> Dynamic <code>{{filename}}</code>, <code>{{size}}</code>, <code>{{caption}}</code>, Prefix/Suffix, link/username strippers & word replacer</blockquote>
 
-<u>**📚 Available commands:**</u>
-<b>⏣ __/start - check I'm alive__ 
-⏣ __/forward - forward messages__
-⏣ __/settings - configure your settings__
-⏣ __ /unequify - delete duplicate media messages in chats__
-⏣ __ /stop - stop your ongoing tasks__
-⏣ __ /reset - reset your settings__</b>
+<i>👇 Tap a button below to configure or start forwarding:</i>"""
 
-<b><u>💢 Features:</b></u>
-<b>► __Forward message from public channel to your channel without admin permission. if the channel is private need admin permission, if you can't give admin permission then use userbot, but in userbot there is a chance to get your account ban so use fake account__
-► __custom caption__
-► __custom button__
-► __skip duplicate messages__
-► __filter type of messages__</b>
-"""
-  
-  HOW_USE_TXT = """<b><u>⚠️ Before Forwarding:</b></u>
-<b>► __add a bot or userbot__
-► __add atleast one to channel__ `(your bot/userbot must be admin in there)`
-► __You can add chats or bots by using /settings__
-► __if the **From Channel** is private your userbot must be member in there or your bot must need admin permission in there also__
-► __Then use /forward to forward messages__
+    HELP_TXT = """<blockquote><b>📖 COMMANDS & FEATURE GUIDE</b></blockquote>
 
-► ʜᴏᴡ ᴛᴏ ᴜsᴇ ᴍᴇ [ᴛᴜᴛᴏʀɪᴀʟ ᴠɪᴅᴇᴏ](https://youtu.be/wO1FE-lf35I)</b>"""
-  
-  ABOUT_TXT = """<b>
-╔════❰ ғᴏʀᴡᴀʀᴅ ʙᴏᴛ ❱═❍⊱❁۪۪
-║╭━━━━━━━━━━━━━━━➣
-║┣⪼📃ʙᴏᴛ : [Fᴏʀᴡᴀᴅ Bᴏᴛ](https://t.me/VJForwardBot)
-║┣⪼👦Cʀᴇᴀᴛᴏʀ : [Kɪɴɢ VJ 👑](https://t.me/kingvj01)
-║┣⪼🤖Uᴘᴅᴀᴛᴇ : [VJ Bᴏᴛᴢ](https://t.me/vj_botz)
-║┣⪼📡Hᴏsᴛᴇᴅ ᴏɴ : Sᴜᴘᴇʀ Fᴀsᴛ
-║┣⪼🗣️Lᴀɴɢᴜᴀɢᴇ : Pʏᴛʜᴏɴ3
-║┣⪼📚Lɪʙʀᴀʀʏ : Pʏʀᴏɢʀᴀᴍ Gᴀᴛʜᴇʀ 2.11.0 
-║┣⪼🗒️Vᴇʀsɪᴏɴ : 0.18.3
-║╰━━━━━━━━━━━━━━━➣
-╚══════════════════❍⊱❁۪۪
-</b>"""
-  STATUS_TXT = """
-╔════❰ ʙᴏᴛ sᴛᴀᴛᴜs  ❱═❍⊱❁۪۪
-║╭━━━━━━━━━━━━━━━➣
-║┣⪼**⏳ ʙᴏᴛ ᴜᴘᴛɪᴍᴇ:**`{}`
-║┃
-║┣⪼**👱 Tᴏᴛᴀʟ Usᴇʀs:** `{}`
-║┃
-║┣⪼**🤖 Tᴏᴛᴀʟ Bᴏᴛ:** `{}`
-║┃
-║┣⪼**🔃 Fᴏʀᴡᴀʀᴅɪɴɢs:** `{}`
-║┃
-║╰━━━━━━━━━━━━━━━➣
-╚══════════════════❍⊱❁۪۪
-"""
-  FROM_MSG = "<b>❪ SET SOURCE CHAT ❫\n\nForward the last message or last message link of source chat.\n/cancel - cancel this process</b>"
-  TO_MSG = "<b>❪ CHOOSE TARGET CHAT ❫\n\nChoose your target chat from the given buttons.\n/cancel - Cancel this process</b>"
-  SKIP_MSG = "<b>❪ SET MESSAGE SKIPING NUMBER ❫</b>\n\n<b>Skip the message as much as you enter the number and the rest of the message will be forwarded\nDefault Skip Number =</b> <code>0</code>\n<code>eg: You enter 0 = 0 message skiped\n You enter 5 = 5 message skiped</code>\n/cancel <b>- cancel this process</b>"
-  CANCEL = "<b>Process Cancelled Succefully !</b>"
-  BOT_DETAILS = "<b><u>📄 BOT DETAILS</b></u>\n\n<b>➣ NAME:</b> <code>{}</code>\n<b>➣ BOT ID:</b> <code>{}</code>\n<b>➣ USERNAME:</b> @{}"
-  USER_DETAILS = "<b><u>📄 USERBOT DETAILS</b></u>\n\n<b>➣ NAME:</b> <code>{}</code>\n<b>➣ USER ID:</b> <code>{}</code>\n<b>➣ USERNAME:</b> @{}"  
-         
-  TEXT = """
-╔════❰ ғᴏʀᴡᴀʀᴅ sᴛᴀᴛᴜs  ❱═❍⊱❁۪۪
-║╭━━━━━━━━━━━━━━━➣
-║┣⪼<b>🕵 ғᴇᴄʜᴇᴅ Msɢ :</b> <code>{}</code>
-║┃
-║┣⪼<b>✅ sᴜᴄᴄᴇғᴜʟʟʏ Fᴡᴅ :</b> <code>{}</code>
-║┃
-║┣⪼<b>👥 ᴅᴜᴘʟɪᴄᴀᴛᴇ Msɢ :</b> <code>{}</code>
-║┃
-║┣⪼<b>🗑 ᴅᴇʟᴇᴛᴇᴅ Msɢ :</b> <code>{}</code>
-║┃
-║┣⪼<b>🪆 Sᴋɪᴘᴘᴇᴅ Msɢ :</b> <code>{}</code>
-║┃
-║┣⪼<b>🔁 Fɪʟᴛᴇʀᴇᴅ Msɢ :</b> <code>{}</code>
-║┃
-║┣⪼<b>📊 Cᴜʀʀᴇɴᴛ Sᴛᴀᴛᴜs:</b> <code>{}</code>
-║┃
-║┣⪼<b>𖨠 Pᴇʀᴄᴇɴᴛᴀɢᴇ:</b> <code>{}</code> %
-║╰━━━━━━━━━━━━━━━➣ 
-╚════❰ {} ❱══❍⊱❁۪۪
-"""
-  DUPLICATE_TEXT = """
-╔════❰ ᴜɴᴇǫᴜɪғʏ sᴛᴀᴛᴜs ❱═❍⊱❁۪۪
-║╭━━━━━━━━━━━━━━━➣
-║┣⪼ <b>ғᴇᴛᴄʜᴇᴅ ғɪʟᴇs:</b> <code>{}</code>
-║┃
-║┣⪼ <b>ᴅᴜᴘʟɪᴄᴀᴛᴇ ᴅᴇʟᴇᴛᴇᴅ:</b> <code>{}</code> 
-║╰━━━━━━━━━━━━━━━➣
-╚════❰ {} ❱══❍⊱❁۪۪
-"""
-  DOUBLE_CHECK = """<b><u>DOUBLE CHECKING ⚠️</b></u>
-<code>Before forwarding the messages Click the Yes button only after checking the following</code>
+<blockquote><b>⌨️ Available Commands</b>
+• <code>/start</code> — Open the main dashboard
+• <code>/forward</code> — Launch a new forwarding task
+• <code>/stop</code> — Safely pause your active task (saves exact offset)
+• <code>/resume</code> — Resume a paused or interrupted task
+• <code>/unequify</code> — Scan & delete duplicate media in a channel
+• <code>/settings</code> — Configure bots, channels, captions, cleaners & filters
+• <code>/reset</code> — Reset all settings & caches to default</blockquote>
 
-<b>★ YOUR BOT:</b> [{botname}](t.me/{botuname})
-<b>★ FROM CHANNEL:</b> `{from_chat}`
-<b>★ TO CHANNEL:</b> `{to_chat}`
-<b>★ SKIP MESSAGES:</b> `{skip}`
+<blockquote><b>🚀 Engine Capabilities</b>
+• <b>Multi-Bot Round-Robin Pool:</b> Paste multiple bot tokens at once. Delay scales automatically (<code>1 bot = 3.0s</code>, <code>2 = 1.5s</code>, <code>3 = 1.0s</code>, <code>6 = 0.5s</code>).
+• <b>Smart Caption Engine:</b> Customize captions with <code>{filename}</code>, <code>{size}</code>, <code>{caption}</code>, plus Prefix & Suffix blocks.
+• <b>1-Click Auto-Cleaners:</b> Strip <code>@usernames</code>, <code>t.me</code> links, web URLs, HTML <code>&lt;a&gt;</code> tags, or replace/remove custom words.
+• <b>Granular Filters & Dedup:</b> Toggle 9 media types, Min/Max MB size, keyword allowlist, extension blocklist & unpacked file ID deduplication.</blockquote>"""
 
-<i>° [{botname}](t.me/{botuname}) must be admin in **TARGET CHAT**</i> (`{to_chat}`)
-<i>° If the **SOURCE CHAT** is private your userbot must be member or your bot must be admin in there also</b></i>
+    HOW_USE_TXT = """<blockquote><b>🚀 QUICK 4-STEP SETUP GUIDE</b></blockquote>
 
-<b>If the above is checked then the yes button can be clicked</b>"""
-  
-SETTINGS_TXT = """<b>change your settings as your wish</b>"""
+<blockquote><b>1️⃣ Build Your Worker Bot Pool (or Userbot)</b>
+• Open <code>/settings</code> ➔ <b>🤖 Bot Manager</b>.
+• Paste one or multiple bot tokens from @BotFather to build your <b>Round-Robin Pool</b>.
+• <i>Optional:</i> Add a <b>Userbot Session</b> for private source chats where bots aren't admins.</blockquote>
+
+<blockquote><b>2️⃣ Add Your Target Channel(s)</b>
+• Open <code>/settings</code> ➔ <b>📢 Target Channels</b>.
+• Promote all worker bots in your pool (or your Userbot) to <b>Admin</b> in the target channel.</blockquote>
+
+<blockquote><b>3️⃣ Customize Captions, Cleaners & Filters</b>
+• Configure Prefix/Suffix, 1-click link/username cleaners, word replacements, and media filters in <code>/settings</code>.</blockquote>
+
+<blockquote><b>4️⃣ Start, Pause & Resume</b>
+• Send <code>/forward</code>, pick your target chat, forward the last message (or link) from the source chat, and hit <b>🚀 Start Forwarding</b>!
+• Use <code>/stop</code> to pause safely and <code>/resume</code> to continue anytime.</blockquote>
+
+🎥 <a href="https://youtu.be/wO1FE-lf35I">Watch Video Tutorial</a>"""
+
+    ABOUT_TXT = """<blockquote><b>ℹ️ ABOUT ADVANCED FORWARD BOT</b></blockquote>
+
+<blockquote>┌ <b>🤖 Bot Name:</b> <a href="https://t.me/VJForwardBot">Advanced Forward Bot</a>
+├ <b>👨‍💻 Developer:</b> <a href="https://t.me/kingvj01">King VJ 👑</a>
+├ <b>📢 Updates:</b> <a href="https://t.me/vj_botz">VJ Botz</a>
+├ <b>🐍 Runtime:</b> <code>Python 3.11 Async</code>
+├ <b>📚 Framework:</b> <code>Pyrofork (MTProto)</code>
+├ <b>⚙️ Engine:</b> <code>Multi-Bot Round-Robin v3.0</code>
+└ <b>🗄 Database:</b> <code>MongoDB Motor Async</code></blockquote>"""
+
+    STATUS_TXT = """<blockquote><b>📊 LIVE BOT STATISTICS</b></blockquote>
+
+<blockquote>┌ <b>⏳ Bot Uptime:</b> <code>{}</code>
+├ <b>👥 Total Users:</b> <code>{}</code>
+├ <b>🤖 Pool Bots & Sessions:</b> <code>{}</code>
+└ <b>🔄 Active / Saved Tasks:</b> <code>{}</code></blockquote>"""
+
+    FROM_MSG = """<blockquote><b>📥 STEP 2 OF 3 — SET SOURCE CHAT</b></blockquote>
+
+<blockquote>Forward the <b>last message</b> from the source chat, or send its <b>Telegram message link</b>:
+• Example: <code>https://t.me/channel_name/1500</code>
+• Private Link: <code>https://t.me/c/123456789/1500</code></blockquote>
+
+<i>Send /cancel to abort this setup.</i>"""
+
+    TO_MSG = """<blockquote><b>📤 STEP 1 OF 3 — CHOOSE TARGET CHAT</b></blockquote>
+
+<blockquote>Select your destination channel from the reply keyboard below.</blockquote>
+
+<i>Send /cancel to abort this setup.</i>"""
+
+    SKIP_MSG = """<blockquote><b>⏭ STEP 3 OF 3 — STARTING MESSAGE OFFSET</b></blockquote>
+
+<blockquote>Enter the starting message ID (number of initial messages to skip):
+• Send <code>0</code> to start from the very first message
+• Send <code>100</code> to skip the first 100 messages</blockquote>
+
+<i>Send /cancel to abort this setup.</i>"""
+
+    CANCEL = "<blockquote><b>🚫 Operation cancelled successfully.</b></blockquote>"
+
+    BOT_DETAILS = """<blockquote><b>🤖 WORKER BOT PROFILE</b></blockquote>
+
+<blockquote>┌ <b>🏷 Name:</b> <code>{}</code>
+├ <b>🆔 Bot ID:</b> <code>{}</code>
+├ <b>🔗 Username:</b> @{}
+└ <b>⚡ Rate Limit:</b> <code>20 msgs / 60s sliding window</code></blockquote>"""
+
+    USER_DETAILS = """<blockquote><b>👤 USERBOT SESSION PROFILE</b></blockquote>
+
+<blockquote>┌ <b>🏷 Name:</b> <code>{}</code>
+├ <b>🆔 User ID:</b> <code>{}</code>
+├ <b>🔗 Username:</b> @{}
+└ <b>🔓 Access:</b> <code>Public & Private Restricted Chats</code></blockquote>"""
+
+    TEXT = """<blockquote><b>{title}</b>
+<code>{progress_bar}</code> <b>{percentage}%</b></blockquote>
+
+<blockquote>┌ <b>📥 Fetched:</b> <code>{fetched}</code> / <code>{total}</code>
+├ <b>✅ Forwarded:</b> <code>{forwarded}</code>
+├ <b>♻️ Duplicates Skipped:</b> <code>{duplicate}</code>
+├ <b>🔍 Filtered Out:</b> <code>{filtered}</code>
+├ <b>🗑 Deleted / Empty:</b> <code>{deleted}</code>
+└ <b>⏭ Initial Offset:</b> <code>{skip}</code></blockquote>
+
+<blockquote>┌ <b>🤖 Engine:</b> <code>{mode_label}</code>
+├ <b>⏱ Auto Delay:</b> <code>{delay}s</code>
+├ <b>📡 Status:</b> <code>{status}</code>
+└ <b>⏳ Est. Remaining:</b> <code>{eta}</code></blockquote>"""
+
+    PROGRESS_ALERT = (
+        "📊 Progress: {percentage}%\n"
+        "📥 Fetched: {fetched}\n"
+        "✅ Forwarded: {forwarded}\n"
+        "⏳ Remaining: {remaining}\n"
+        "📡 Status: {status}\n"
+        "⏱ Elapsed: {uptime}\n"
+        "🏁 Est. Left: {eta}"
+    )
+
+    DUPLICATE_TEXT = """<blockquote><b>🧹 CHANNEL DEDUPLICATION (/unequify)</b></blockquote>
+
+<blockquote>┌ <b>🔎 Media Scanned:</b> <code>{}</code>
+├ <b>🗑 Duplicates Deleted:</b> <code>{}</code>
+└ <b>📡 Status:</b> <code>{}</code></blockquote>"""
+
+    DOUBLE_CHECK = """<blockquote><b>🔍 CONFIRM FORWARDING TASK</b></blockquote>
+
+<blockquote>┌ <b>🤖 Forwarding Mode:</b> <code>{mode_title}</code>
+├ <b>⚡ Pool Rate / Delay:</b> <code>{rate_info}</code>
+├ <b>📥 Source Chat:</b> <code>{from_chat}</code>
+├ <b>📤 Target Chat:</b> <code>{to_chat}</code>
+├ <b>⏭ Start Offset:</b> <code>{skip}</code>
+└ <b>📨 Last Message ID:</b> <code>{limit}</code></blockquote>
+
+<blockquote><b>⚠️ Pre-Flight Checklist</b>
+• Ensure your worker bot(s) or Userbot are <b>Admin</b> in <code>{to_chat}</code>.
+• For private source chats, make your bot(s) Admin there or switch mode to <b>Userbot Session</b>.</blockquote>
+
+<i>👇 Click <b>🚀 Start Forwarding</b> or switch mode below:</i>"""
+
+    SETTINGS_TXT = """<blockquote><b>⚙️ CONTROL PANEL & SETTINGS</b></blockquote>
+
+<blockquote>Manage your <b>Multi-Bot Round-Robin Pool</b>, <b>Target Channels</b>, <b>Smart Caption Engine</b>, <b>1-Click Auto-Cleaners</b>, and <b>Granular Media Filters</b> from the menu below:</blockquote>"""
